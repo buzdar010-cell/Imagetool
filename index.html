@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bulk Image Generator — Together AI</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, system-ui, sans-serif;
+    background: #12141a;
+    color: #f2f0ea;
+    margin: 0;
+    padding: 20px 16px 60px;
+    max-width: 640px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  .sub { font-size: 14px; color: #a9a79f; margin: 0 0 24px; line-height: 1.5; }
+  section { margin-bottom: 20px; }
+  label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid #3a3d47;
+    background: #1c1f27;
+    color: #f2f0ea;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; }
+  .hint { font-size: 12px; color: #7d7b74; margin-top: 6px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+  }
+  .small-btn {
+    padding: 10px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid #3a3d47;
+    background: #262a34;
+    color: #f2f0ea;
+  }
+  .primary-btn {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 17px;
+    font-weight: 700;
+    background: #e8a33d;
+    color: #1c1500;
+  }
+  .danger-btn {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 17px;
+    font-weight: 700;
+    background: #c1443c;
+    color: #fff;
+  }
+  .progress-text { font-size: 13px; color: #c7c5bd; margin: 0 0 8px; }
+  .progress-outer {
+    width: 100%; height: 8px; border-radius: 4px;
+    background: #262a34; overflow: hidden;
+  }
+  .progress-inner {
+    height: 100%; background: #e8a33d; width: 0%;
+    transition: width 0.2s ease;
+  }
+  .card {
+    background: #1c1f27;
+    border: 1px solid #2c2f38;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+  .card p.prompt { font-size: 13px; color: #c7c5bd; margin: 0; flex: 1; }
+  .prompt-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+  .prompt-edit-textarea {
+    flex: 1;
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #3a3d47;
+    background: #12141a;
+    color: #f2f0ea;
+    font-family: inherit;
+    min-height: 70px;
+  }
+  .edit-btn { flex-shrink: 0; padding: 6px 12px; font-size: 12px; }
+  .card p.status { font-size: 13px; color: #8f8d85; margin: 0; }
+  .card p.error { font-size: 13px; color: #e58e86; margin: 0 0 8px; }
+  .card img { width: 100%; border-radius: 8px; display: block; }
+  #fileName { font-size: 12px; color: #7d7b74; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+<h1>Bulk Image Generator</h1>
+<p class="sub">Powered by Together AI (Flux). Everything happens in this browser tab — your key is only saved locally on this device.</p>
+
+<section>
+  <label for="togkey">Together AI API key</label>
+  <div class="row">
+    <input type="password" id="togkey" placeholder="Paste your key here" autocomplete="off" style="flex:1;">
+    <button class="small-btn" id="toggleKey">Show</button>
+  </div>
+  <p class="hint">Get one at api.together.ai — sign up, add a small payment method, copy your key from the dashboard. Flux 2 Pro runs about $0.03/image, so a 200-image batch costs roughly $6. Saved automatically on this device once entered.</p>
+  <div style="margin-top:10px;">
+    <button class="small-btn" id="testConnBtn">Test connection</button>
+    <p class="hint" id="testConnResult" style="margin-top:8px;"></p>
+  </div>
+</section>
+
+<section>
+  <label for="model">Model</label>
+  <select id="model">
+    <option value="black-forest-labs/FLUX.2-pro" selected>Flux 2 Pro — best quality + prompt accuracy (~$0.03/image)</option>
+    <option value="black-forest-labs/FLUX.1.1-pro">Flux 1.1 Pro — high quality (~$0.03/image)</option>
+    <option value="black-forest-labs/FLUX.1-dev">Flux Dev — mid quality, slower</option>
+    <option value="black-forest-labs/FLUX.1-schnell">Flux Schnell — fastest, cheapest (~$0.003/image), weaker on multi-object scenes</option>
+  </select>
+</section>
+
+<section>
+  <label for="aspect">Aspect ratio</label>
+  <select id="aspect">
+    <option value="16:9" selected>Landscape (16:9)</option>
+    <option value="1:1">Square (1:1)</option>
+    <option value="4:5">Portrait (4:5)</option>
+    <option value="9:16">Portrait tall (9:16)</option>
+    <option value="3:2">Landscape (3:2)</option>
+    <option value="4:3">Landscape (4:3)</option>
+  </select>
+</section>
+
+<section>
+  <label for="promptfile">Upload a prompts file (.txt or .csv, one prompt per line)</label>
+  <div class="row">
+    <button class="small-btn" id="chooseFileBtn">Choose file</button>
+    <span id="fileName">No file chosen</span>
+  </div>
+  <input type="file" id="promptfile" accept=".txt,.csv,text/plain,text/csv" style="display:none;">
+</section>
+
+<section>
+  <label for="prompts">Prompts — one per line (<span id="promptCount">0</span> loaded). Paste your Stage 3 image prompts directly — each starting with [MM:SS] is used automatically as the filename when saved.</label>
+  <textarea id="prompts" rows="8" placeholder="[00:00] Hand-drawn 2D doodle cartoon animation...
+[00:05] Hand-drawn 2D doodle cartoon animation...
+..."></textarea>
+</section>
+
+<section>
+  <label for="delay">Delay between images (ms)</label>
+  <input type="number" id="delay" min="0" step="250" value="500">
+  <p class="hint">Together AI has no strict per-account rate limit like Google, so this can stay low. 500ms is a safe default.</p>
+</section>
+
+<div style="margin-bottom:20px;">
+  <button class="primary-btn" id="generateBtn">Generate images</button>
+  <button class="danger-btn" id="stopBtn" style="display:none;">Stop</button>
+</div>
+
+<section id="progressSection" style="display:none;">
+  <p class="progress-text" id="progressText">0 / 0 processed</p>
+  <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
+  <button class="primary-btn" id="saveAllBtn" style="display:none; margin-top:14px;">Save all images</button>
+  <div id="zipProgressWrap" style="display:none; margin-top:10px;">
+    <p class="progress-text" id="zipProgressText">Preparing…</p>
+    <div class="progress-outer"><div class="progress-inner" id="zipProgressBar"></div></div>
+  </div>
+</section>
+
+<div id="results"></div>
+
+<script>
+let stopFlag = false;
+let results = [];
+
+const togKeyInput = document.getElementById('togkey');
+const toggleKeyBtn = document.getElementById('toggleKey');
+const modelSelect = document.getElementById('model');
+const aspectSelect = document.getElementById('aspect');
+const promptsTextarea = document.getElementById('prompts');
+const promptCountSpan = document.getElementById('promptCount');
+const delayInput = document.getElementById('delay');
+const generateBtn = document.getElementById('generateBtn');
+const stopBtn = document.getElementById('stopBtn');
+const progressSection = document.getElementById('progressSection');
+const progressText = document.getElementById('progressText');
+const progressBar = document.getElementById('progressBar');
+const saveAllBtn = document.getElementById('saveAllBtn');
+const resultsDiv = document.getElementById('results');
+const fileInput = document.getElementById('promptfile');
+const chooseFileBtn = document.getElementById('chooseFileBtn');
+const fileNameSpan = document.getElementById('fileName');
+const testConnBtn = document.getElementById('testConnBtn');
+
+// Auto-fill saved key on load (stored only in this browser, on this device)
+try {
+  const savedKey = localStorage.getItem('together_api_key');
+  if (savedKey) togKeyInput.value = savedKey;
+} catch (e) { /* storage unavailable, skip silently */ }
+
+togKeyInput.addEventListener('input', () => {
+  try { localStorage.setItem('together_api_key', togKeyInput.value.trim()); } catch (e) {}
+});
+
+toggleKeyBtn.addEventListener('click', () => {
+  const isPwd = togKeyInput.type === 'password';
+  togKeyInput.type = isPwd ? 'text' : 'password';
+  toggleKeyBtn.textContent = isPwd ? 'Hide' : 'Show';
+});
+
+let uploadedFileName = null;
+
+chooseFileBtn.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  fileNameSpan.textContent = file.name;
+  uploadedFileName = file.name;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    promptsTextarea.value = String(evt.target.result || '').trim();
+    updatePromptCount();
+  };
+  reader.onerror = () => alert("Couldn't read that file. Try a plain .txt or .csv file.");
+  reader.readAsText(file);
+});
+
+promptsTextarea.addEventListener('input', updatePromptCount);
+
+function updatePromptCount() {
+  promptCountSpan.textContent = getPrompts().length;
+}
+
+function getPrompts() {
+  return promptsTextarea.value.split('\n').map(p => p.trim()).filter(Boolean);
+}
+
+// Parses a leading [MM:SS] or [M:SS] timestamp from a prompt line.
+// Returns { timestamp: "01_02" or null, cleanPrompt: prompt with the tag stripped }
+function parseTimestamp(rawPrompt) {
+  const match = rawPrompt.match(/^\[(\d{1,3}):(\d{2})\]\s*/);
+  if (!match) return { timestamp: null, cleanPrompt: rawPrompt };
+  const mm = match[1].padStart(2, '0');
+  const ss = match[2];
+  const cleanPrompt = rawPrompt.slice(match[0].length).trim();
+  return { timestamp: `${mm}_${ss}`, cleanPrompt };
+}
+
+function aspectToDimensions(aspectRatio) {
+  const map = {
+    "16:9": [1344, 768],
+    "1:1": [1024, 1024],
+    "4:5": [896, 1120],
+    "9:16": [768, 1344],
+    "3:2": [1216, 832],
+    "4:3": [1152, 896]
+  };
+  return map[aspectRatio] || [1344, 768];
+}
+
+function base64ToBlobUrl(base64, mime) {
+  const byteChars = atob(base64);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: mime || 'image/png' });
+  return URL.createObjectURL(blob);
+}
+
+async function generateOne(prompt) {
+  const apiKey = togKeyInput.value.trim();
+  if (!apiKey) throw new Error('MISSING KEY: paste your Together AI API key first.');
+  const model = modelSelect.value;
+  const [width, height] = aspectToDimensions(aspectSelect.value);
+  const body = {
+    model: model,
+    prompt: prompt,
+    width: width,
+    height: height,
+    steps: model.includes('schnell') ? 4 : 28,
+    n: 1,
+    response_format: 'base64'
+  };
+  let res;
+  try {
+    res = await fetch('https://api.together.xyz/v1/images/generations', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+  } catch (networkErr) {
+    throw new Error(`NETWORK BLOCK: could not reach Together AI (${networkErr.message}). Check your internet connection or try a different network.`);
+  }
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error(`API ERROR ${res.status}: ${errText.slice(0, 300)}`);
+  }
+  const data = await res.json();
+  const item = data.data && data.data[0];
+  if (!item) throw new Error('EMPTY RESPONSE: Together AI returned no image data.');
+  const b64 = item.b64_json || item.base64 || item.image_base64;
+  if (b64) return base64ToBlobUrl(b64, 'image/png');
+  if (item.url) {
+    const imgRes = await fetch(item.url);
+    const blob = await imgRes.blob();
+    return URL.createObjectURL(blob);
+  }
+  throw new Error('EMPTY RESPONSE: no image data or URL found in the response.');
+}
+
+async function testConnection() {
+  const apiKey = togKeyInput.value.trim();
+  if (!apiKey) { alert('Paste your Together AI API key first.'); return; }
+  testConnBtn.disabled = true;
+  const resultEl = document.getElementById('testConnResult');
+  resultEl.textContent = 'Testing…';
+  resultEl.style.color = '#c7c5bd';
+  try {
+    const res = await fetch('https://api.together.xyz/v1/models', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + apiKey }
+    });
+    if (res.ok) {
+      resultEl.textContent = '✓ Connection works. Your key is valid — ready to generate.';
+      resultEl.style.color = '#7dbf7d';
+    } else {
+      const t = await res.text();
+      resultEl.textContent = `Connected, but rejected: ${res.status} — ${t.slice(0,200)}. Check your key is copied correctly and your account has a payment method on file.`;
+      resultEl.style.color = '#e58e86';
+    }
+  } catch (err) {
+    resultEl.textContent = `✗ Could not reach Together AI (${err.message}). Check your internet connection or try a different network.`;
+    resultEl.style.color = '#e58e86';
+  }
+  testConnBtn.disabled = false;
+}
+
+function renderResults() {
+  resultsDiv.innerHTML = '';
+  results.forEach((r) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const promptRow = document.createElement('div');
+    promptRow.className = 'prompt-row';
+
+    const canEdit = r.status === 'done' || r.status === 'error';
+
+    if (r.editing) {
+      const textarea = document.createElement('textarea');
+      textarea.className = 'prompt-edit-textarea';
+      textarea.value = r.cleanPrompt || r.prompt;
+      textarea.addEventListener('input', (e) => {
+        r.cleanPrompt = e.target.value;
+      });
+      promptRow.appendChild(textarea);
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'small-btn edit-btn';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', () => {
+        r.editing = false;
+        renderResults();
+      });
+      promptRow.appendChild(saveBtn);
+    } else {
+      const p = document.createElement('p');
+      p.className = 'prompt';
+      p.textContent = (r.timestamp ? `[${r.timestamp}] ` : '') + (r.cleanPrompt || r.prompt);
+      promptRow.appendChild(p);
+
+      if (canEdit) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'small-btn edit-btn';
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => {
+          r.editing = true;
+          renderResults();
+        });
+        promptRow.appendChild(editBtn);
+      }
+    }
+
+    card.appendChild(promptRow);
+
+    if (r.status === 'queued') {
+      const s = document.createElement('p');
+      s.className = 'status';
+      s.textContent = 'Waiting…';
+      card.appendChild(s);
+    } else if (r.status === 'generating') {
+      const s = document.createElement('p');
+      s.className = 'status';
+      s.textContent = 'Generating…';
+      card.appendChild(s);
+    } else if (r.status === 'done') {
+      const img = document.createElement('img');
+      img.src = r.url;
+      img.alt = r.prompt;
+      card.appendChild(img);
+
+      const btnRow = document.createElement('div');
+      btnRow.style.display = 'flex';
+      btnRow.style.gap = '8px';
+      btnRow.style.marginTop = '10px';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'small-btn';
+      saveBtn.textContent = 'Save';
+      saveBtn.addEventListener('click', () => {
+        const a = document.createElement('a');
+        a.href = r.url;
+        a.download = r.timestamp ? `${r.timestamp}.png` : `image-${r.id + 1}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      });
+      btnRow.appendChild(saveBtn);
+
+      const regenBtn = document.createElement('button');
+      regenBtn.className = 'small-btn';
+      regenBtn.textContent = 'Regenerate';
+      regenBtn.addEventListener('click', () => retryOne(r.id));
+      btnRow.appendChild(regenBtn);
+
+      card.appendChild(btnRow);
+    } else if (r.status === 'error') {
+      const e = document.createElement('p');
+      e.className = 'error';
+      e.textContent = 'Failed: ' + r.error;
+      card.appendChild(e);
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'small-btn';
+      retryBtn.textContent = 'Retry';
+      retryBtn.addEventListener('click', () => retryOne(r.id));
+      card.appendChild(retryBtn);
+    }
+
+    resultsDiv.appendChild(card);
+  });
+}
+
+function updateProgress(done, total) {
+  const doneCount = results.filter(r => r.status === 'done').length;
+  const errorCount = results.filter(r => r.status === 'error').length;
+  progressText.textContent = `${done} / ${total} processed — ${doneCount} done, ${errorCount} failed`;
+  progressBar.style.width = total ? `${(done / total) * 100}%` : '0%';
+  saveAllBtn.style.display = doneCount > 0 ? 'block' : 'none';
+  if (!saveAllBtn.disabled) saveAllBtn.textContent = `Save all ${doneCount} images`;
+}
+
+async function startBatch() {
+  const apiKey = togKeyInput.value.trim();
+  if (!apiKey) { alert('Paste your Together AI API key first.'); return; }
+  const prompts = getPrompts();
+  if (prompts.length === 0) { alert('Add at least one prompt, one per line.'); return; }
+
+  stopFlag = false;
+  generateBtn.style.display = 'none';
+  stopBtn.style.display = 'block';
+  progressSection.style.display = 'block';
+
+  results = prompts.map((p, i) => {
+    const { timestamp, cleanPrompt } = parseTimestamp(p);
+    return { id: i, prompt: p, cleanPrompt, timestamp, status: 'queued', url: null, error: null, editing: false };
+  });
+  renderResults();
+  updateProgress(0, prompts.length);
+
+  const delayMs = Number(delayInput.value) || 0;
+
+  for (let i = 0; i < prompts.length; i++) {
+    if (stopFlag) break;
+    results[i].status = 'generating';
+    renderResults();
+    try {
+      const blobUrl = await generateOne(results[i].cleanPrompt);
+      results[i].status = 'done';
+      results[i].url = blobUrl;
+    } catch (err) {
+      results[i].status = 'error';
+      results[i].error = err.message;
+    }
+    renderResults();
+    updateProgress(i + 1, prompts.length);
+    if (i < prompts.length - 1 && !stopFlag) {
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+  }
+
+  generateBtn.style.display = 'block';
+  stopBtn.style.display = 'none';
+}
+
+async function retryOne(id) {
+  const target = results.find(r => r.id === id);
+  if (!target) return;
+  target.status = 'generating';
+  target.error = null;
+  renderResults();
+  try {
+    const blobUrl = await generateOne(target.cleanPrompt || target.prompt);
+    target.status = 'done';
+    target.url = blobUrl;
+  } catch (err) {
+    target.status = 'error';
+    target.error = err.message;
+  }
+  renderResults();
+  updateProgress(results.filter(r => r.status === 'done' || r.status === 'error').length, results.length);
+}
+
+function getZipFileName() {
+  if (!uploadedFileName) return 'images.zip';
+  let base = uploadedFileName.replace(/\.(txt|csv)$/i, '');
+  base = base.replace(/image_prompts/i, 'images');
+  if (!/images/i.test(base)) base = 'images_' + base;
+  return base + '.zip';
+}
+
+function formatSeconds(sec) {
+  if (!isFinite(sec) || sec < 0) return '';
+  if (sec < 1) return 'less than a second';
+  if (sec < 60) return `${Math.ceil(sec)}s`;
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return `${m}m ${s}s`;
+}
+
+async function saveAll() {
+  const toSave = results.filter(r => r.status === 'done' && r.url);
+  if (toSave.length === 0) { alert('No completed images yet.'); return; }
+
+  const zipWrap = document.getElementById('zipProgressWrap');
+  const zipText = document.getElementById('zipProgressText');
+  const zipBar = document.getElementById('zipProgressBar');
+
+  saveAllBtn.disabled = true;
+  saveAllBtn.textContent = 'Downloading…';
+  zipWrap.style.display = 'block';
+  zipBar.style.width = '0%';
+  zipText.textContent = `Downloading image 1 of ${toSave.length}…`;
+
+  // Phase 1: fetch each generated image (0% - 70% of the bar)
+  const zip = new JSZip();
+  const startTime = Date.now();
+  for (let i = 0; i < toSave.length; i++) {
+    const r = toSave[i];
+    const filename = r.timestamp ? `${r.timestamp}.png` : `image-${r.id + 1}.png`;
+    const blob = await (await fetch(r.url)).blob();
+    zip.file(filename, blob);
+
+    const fetchProgress = (i + 1) / toSave.length;
+    const pct = Math.round(fetchProgress * 70);
+    zipBar.style.width = pct + '%';
+
+    const elapsed = (Date.now() - startTime) / 1000;
+    const avgPerImage = elapsed / (i + 1);
+    const remainingImages = toSave.length - (i + 1);
+    const estRemaining = avgPerImage * remainingImages + (elapsed * 0.35); // rough padding for compression phase
+    zipText.textContent = `Downloading image ${i + 1} of ${toSave.length}… (~${formatSeconds(estRemaining)} left)`;
+  }
+
+  // Phase 2: compress into zip (70% - 100% of the bar)
+  zipText.textContent = 'Compressing into zip…';
+  const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+    const pct = 70 + Math.round((metadata.percent / 100) * 30);
+    zipBar.style.width = pct + '%';
+    zipText.textContent = `Compressing into zip… ${Math.round(metadata.percent)}%`;
+  });
+
+  zipBar.style.width = '100%';
+  zipText.textContent = 'Done — starting download…';
+
+  const zipUrl = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = zipUrl;
+  a.download = getZipFileName();
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(zipUrl);
+
+  saveAllBtn.disabled = false;
+  saveAllBtn.textContent = `Save all ${toSave.length} images`;
+  setTimeout(() => { zipWrap.style.display = 'none'; }, 2000);
+}
+
+generateBtn.addEventListener('click', startBatch);
+stopBtn.addEventListener('click', () => { stopFlag = true; generateBtn.style.display = 'block'; stopBtn.style.display = 'none'; });
+saveAllBtn.addEventListener('click', saveAll);
+testConnBtn.addEventListener('click', testConnection);
+</script>
+
+</body>
+</html>
